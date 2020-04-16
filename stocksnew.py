@@ -81,15 +81,6 @@ def getprices():
     with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/prices/prices.json','r') as pricedata:
         return json.load(pricedata)
 
-def resetuser(userid):
-    user = {
-        'userid': userid,
-        'money': 1000,
-        'goods': setgoods("start")
-    }
-
-    setfileuser(userid,user)
-
 def resetprices():
     prices = {}
     count = 0
@@ -114,7 +105,7 @@ async def updateprices(): #market trend algorithm goes here, asynchronous. Need 
 
     while goodnum <= 11:
         previousprice = prices[goodslist[goodnum]][history-1]
-        prices[goodslist[goodnum]][history] =  previousprice + previousprice*random.uniform(-0.0575,0.0425)
+        prices[goodslist[goodnum]][history] =  previousprice*(1 + random.uniform(-0.0575,0.0425))
         goodnum += 1
 
     setfileprices(prices)
@@ -201,6 +192,22 @@ def canafford(money,order,amount): #returns True/False + money required in the f
 
     return purchasedetails
 
+def setlog(type):
+    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','r') as logdata:
+        log = json.load(logdata)
+
+    if type == "reset":
+        log = [0,0] # [0] for number of buyers, [1] for number of sellers
+    
+    if type == "buy":
+        log[0] += 1
+
+    if type == "sell":
+        log[1] += 1
+
+    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','w') as logdata:
+        json.dump(log,logdata)
+
 def cansell(inventory,order,amount): #returns T/F and how much money made
     prices = getprices()
     count = -1
@@ -228,7 +235,10 @@ async def ping(ctx):
 @bot.event
 async def on_ready(): #needs to *start* with asyncio(time) because the prices are randomized when the script begins
     await bot.change_presence(activity=discord.Game(name='(.help)'))
+    
     resetprices()
+    setlog("reset")
+
     print('Stockbroker is ready.')
     #while True:
     #    await asyncio.sleep(20)
@@ -262,7 +272,13 @@ async def reset(ctx,*,member: discord.Member = None): #add user as an argument s
         else:
             await ctx.send("You don't have the permissions to do this.")
     
-    resetuser(userid)
+    user = {
+        'userid': userid,
+        'money': 1000,
+        'goods': setgoods("start")
+    }
+
+    setfileuser(userid,user)
 
     await ctx.send('(Re)registered successfully.')
 
@@ -329,21 +345,20 @@ async def credit(ctx,member: discord.Member,amount):
 @bot.command()
 async def buy(ctx,order,amount):
     userid = ctx.author.id
-    user = getuserinfo(userid)
+    try:
+        user = getuserinfo(userid)
+    except: #make this a function
+        await ctx.send('Error, you are not registered. Please type ``.reset`` to register')
 
     purchasedetails = canafford(user["money"],order,amount)
 
     if purchasedetails[1] is True:
         user["money"] = user["money"] - purchasedetails[0]
         user["goods"] = setgoods("buy",user["goods"],order,amount) #changed from 'inventory' to 'user["goods"]'
+        setlog("buy")
         await ctx.send("Purchased **" + str(amount) + " " + str(order) + "** and paid " + str(purchasedetails[0]) + "$")
     else:
         await ctx.send("Transaction failed. You need " + str((purchasedetails[0] - user["money"])) + "$ more.")
-    
-    try:
-        setfileuser(userid,user)
-    except: #make this a function
-        await ctx.send('Error, you are not registered. Please type ``.reset`` to register')
 
 @bot.command()
 async def sell(ctx,order,amount):
@@ -355,6 +370,7 @@ async def sell(ctx,order,amount):
     if selldetails[1] is True:
         user["money"] = user["money"] + selldetails[0]
         user["goods"] = setgoods("sell",user["goods"],order,amount)
+        setlog("sell")
         await ctx.send("Sold **" + str(amount) + " " + str(order) + "** and earned " + str(selldetails[0]) + "$")
     else:
         await ctx.send("Transaction failed. You need " + str(int(amount) - user["goods"][order]) + " more " + str(order))

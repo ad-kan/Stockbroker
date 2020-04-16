@@ -81,6 +81,15 @@ def getprices():
     with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/prices/prices.json','r') as pricedata:
         return json.load(pricedata)
 
+def resetuser(userid=None):
+    user = {
+        'userid': userid,
+        'money': 1000,
+        'goods': setgoods("start")
+    }
+
+    setfileuser(userid,user)
+
 def resetprices():
     prices = {}
     count = 0
@@ -192,18 +201,22 @@ def canafford(money,order,amount): #returns True/False + money required in the f
 
     return purchasedetails
 
-def setlog(type):
+def setlog(type,good=None): #need good-specific logs, make new function or get this to encompass everything to retrieve and send logdata 
     with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','r') as logdata:
         log = json.load(logdata)
 
     if type == "reset":
-        log = [0,0] # [0] for number of buyers, [1] for number of sellers
+        log = {}
+        count = 0
+        for x in goodslist:
+            log.update({goodslist[count]:[0,0]}) # [0] for number of buyers, [1] for number of sellers
+            count += 1
     
     if type == "buy":
-        log[0] += 1
+        log[good][0] += 1
 
     if type == "sell":
-        log[1] += 1
+        log[good][1] += 1
 
     with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','w') as logdata:
         json.dump(log,logdata)
@@ -271,14 +284,8 @@ async def reset(ctx,*,member: discord.Member = None): #add user as an argument s
             userid = member.id
         else:
             await ctx.send("You don't have the permissions to do this.")
-    
-    user = {
-        'userid': userid,
-        'money': 1000,
-        'goods': setgoods("start")
-    }
 
-    setfileuser(userid,user)
+    resetuser(userid)
 
     await ctx.send('(Re)registered successfully.')
 
@@ -355,8 +362,8 @@ async def buy(ctx,order,amount):
     if purchasedetails[1] is True:
         user["money"] = user["money"] - purchasedetails[0]
         user["goods"] = setgoods("buy",user["goods"],order,amount) #changed from 'inventory' to 'user["goods"]'
-        setlog("buy")
-        await ctx.send("Purchased **" + str(amount) + " " + str(order) + "** and paid " + str(purchasedetails[0]) + "$")
+        setlog("buy",order)
+        await ctx.send("Purchased **" + str(amount) + " " + order + "** and paid " + str(purchasedetails[0]) + "$")
     else:
         await ctx.send("Transaction failed. You need " + str((purchasedetails[0] - user["money"])) + "$ more.")
 

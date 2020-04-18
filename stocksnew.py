@@ -92,32 +92,32 @@ def resetuser(userid=None):
 
 def resetprices():
     prices = {}
-    count = 0
     for x in goodslist:
         goodarray = [0]*40
-        prices.update({goodslist[count]:goodarray})
-        prices[goodslist[count]][0] = random.randint(11,99)
-        count += 1
+        prices.update({x:goodarray})
+        prices[x][0] = random.randint(11,99)
 
     setfileprices(prices)
 
 async def updateprices(): #market trend algorithm goes here, asynchronous. Need to save previous prices + just do a randomization thing, fix algorithm last
     prices = getprices() #check if zero, update last term
-    
-    history = 0 #cycle through the history of all the goods
+    log = log("get")
+
+    history = 0 #cycle through the history of all the goods to find length of good history
     while True:
         if prices[goodslist[0]][history] == 0:
             break
-        history += 1 #defined and doesn't change for this cycle
-    
+        history += 1
+
     goodnum = 0 #only cycle through all the names of goods
 
+    #make while loop edit only a single good because right now it's editing basically everything
     while goodnum <= 11:
+        bias: 0
         previousprice = prices[goodslist[goodnum]][history-1]
-        prices[goodslist[goodnum]][history] =  previousprice*(1 + random.uniform(-0.0575,0.0425))
+        prices[goodslist[goodnum]][history] = previousprice*(1+random.uniform(-0.0575+bias,0.0425+bias))
         goodnum += 1
-
-    setfileprices(prices)
+        setfileprices(prices)
 
 def displayprices(): #asynchronous because it needs to run periodically while rest of the bot is running
     indentedgoods = (
@@ -161,20 +161,9 @@ def displayprices(): #asynchronous because it needs to run periodically while re
 
 def setgoods(type,inventory=None,order=None,amount=None):
     if type == "start":
-        inventory ={
-            "gold": 0,
-            "silver": 0,
-            "oil": 0,
-            "platinum": 0,
-            "diamond": 0,
-            "corn": 0,
-            "copper": 0,
-            "cotton": 0,
-            "sugar": 0,
-            "coal": 0,
-            "wheat": 0,
-            "uranium": 0,
-        }
+        inventory = {}
+        for x in goodslist:
+            inventory.update({x:0})
 
     if type == "buy":
         inventory[order] += int(amount)
@@ -201,26 +190,6 @@ def canafford(money,order,amount): #returns True/False + money required in the f
 
     return purchasedetails
 
-def setlog(type,good=None): #need good-specific logs, make new function or get this to encompass everything to retrieve and send logdata 
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','r') as logdata:
-        log = json.load(logdata)
-
-    if type == "reset":
-        log = {}
-        count = 0
-        for x in goodslist:
-            log.update({goodslist[count]:[0,0]}) # [0] for number of buyers, [1] for number of sellers
-            count += 1
-    
-    if type == "buy":
-        log[good][0] += 1
-
-    if type == "sell":
-        log[good][1] += 1
-
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','w') as logdata:
-        json.dump(log,logdata)
-
 def cansell(inventory,order,amount): #returns T/F and how much money made
     prices = getprices()
     count = -1
@@ -238,6 +207,30 @@ def cansell(inventory,order,amount): #returns T/F and how much money made
 
     return selldetails
 
+def log(type,good=None,amount=None): #need good-specific logs, make new function or get this to encompass everything to retrieve and send logdata 
+    amount = int(amount)
+    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','r') as logdata:
+        log = json.load(logdata)
+
+    if type == "get":
+        return log
+
+    if type == "reset":
+        log = {}
+        for x in goodslist:
+            log.update({x:[0,0,0,0]}) # [0] amount bought, [1] for number of buyers, [2] amount sold, [3] for number of sellers
+    
+    if type == "buy":
+        log[good][0] += amount
+        log[good][1] += 1
+
+    if type == "sell":
+        log[good][2] += amount
+        log[good][3] += 1
+
+    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','w') as logdata:
+        json.dump(log,logdata)
+
 def getcost(type,amount=None): #implementation with goods prices. Is this really necessary? Might be needed for .totalvalue
     pass
 
@@ -250,7 +243,7 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
     await bot.change_presence(activity=discord.Game(name='(.help)'))
     
     resetprices()
-    setlog("reset")
+    log("reset")
 
     print('Stockbroker is ready.')
     #while True:
@@ -362,7 +355,7 @@ async def buy(ctx,order,amount):
     if purchasedetails[1] is True:
         user["money"] = user["money"] - purchasedetails[0]
         user["goods"] = setgoods("buy",user["goods"],order,amount) #changed from 'inventory' to 'user["goods"]'
-        setlog("buy",order)
+        log("buy",order,amount)
         await ctx.send("Purchased **" + str(amount) + " " + order + "** and paid " + str(purchasedetails[0]) + "$")
     else:
         await ctx.send("Transaction failed. You need " + str((purchasedetails[0] - user["money"])) + "$ more.")
@@ -377,7 +370,7 @@ async def sell(ctx,order,amount):
     if selldetails[1] is True:
         user["money"] = user["money"] + selldetails[0]
         user["goods"] = setgoods("sell",user["goods"],order,amount)
-        setlog("sell")
+        log("sell",order,amount)
         await ctx.send("Sold **" + str(amount) + " " + str(order) + "** and earned " + str(selldetails[0]) + "$")
     else:
         await ctx.send("Transaction failed. You need " + str(int(amount) - user["goods"][order]) + " more " + str(order))

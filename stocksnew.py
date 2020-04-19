@@ -37,6 +37,7 @@ import numpy as np
 # TODOLIST:
 # program .sell and .sellall
 # centralize goodlist list
+# add .help
 
 # LONGTERM TODOLIST:
 # need a bot and server pfp, cash award for dude who makes it
@@ -45,6 +46,7 @@ import numpy as np
 # await channel.send('done!')
 
 bot = commands.Bot(command_prefix = '.')
+bot.remove_command('help')
 
 goodslist = (
     "gold",
@@ -101,7 +103,7 @@ def resetprices():
 
 async def updateprices(): #market trend algorithm goes here, asynchronous. Need to save previous prices + just do a randomization thing, fix algorithm last
     prices = getprices() #check if zero, update last term
-    log = log("get")
+    log = logger("get")
 
     history = 0 #cycle through the history of all the goods to find length of good history
     while True:
@@ -109,15 +111,32 @@ async def updateprices(): #market trend algorithm goes here, asynchronous. Need 
             break
         history += 1
 
-    goodnum = 0 #only cycle through all the names of goods
-
+    goodnum = 0
     #make while loop edit only a single good because right now it's editing basically everything
     while goodnum <= 11:
-        bias: 0
+        #if log[goodslist[goodnum]][1] >= 5: #0 is number of goods, 1 is number of users
+        #    userbias = 5
+        #else:
+        userbias = log[goodslist[goodnum]][1]
+        
+        #if log[goodslist[goodnum]][0] >= 30:
+        #    goodbias = 30
+        #elif log[goodslist[goodnum]][0] <= -30:
+        #    goodbias = -30
+        #else:
+        goodbias = log[goodslist[goodnum]][0]
+
+        #print(goodbias*userbias)
+
+        bias = (-((75*np.log(-(goodbias*userbias)+150))/np.log(12.24744872))+150)/150*3
+
         previousprice = prices[goodslist[goodnum]][history-1]
         prices[goodslist[goodnum]][history] = previousprice*(1+random.uniform(-0.0575+bias,0.0425+bias))
+        if prices[goodslist[goodnum]][history] >= 100:
+            prices[goodslist[goodnum]][history] = 99
         goodnum += 1
-        setfileprices(prices)
+    setfileprices(prices)
+    return history
 
 def displayprices(): #asynchronous because it needs to run periodically while rest of the bot is running
     indentedgoods = (
@@ -207,29 +226,31 @@ def cansell(inventory,order,amount): #returns T/F and how much money made
 
     return selldetails
 
-def log(type,good=None,amount=None): #need good-specific logs, make new function or get this to encompass everything to retrieve and send logdata 
-    amount = int(amount)
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','r') as logdata:
-        log = json.load(logdata)
+def logger(type,good=None,amount=None): #need good-specific logs, make new function or get this to encompass everything to retrieve and send logdata 
+    if amount != None:
+        amount = int(amount)
+    
+    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','r') as logjson:
+        logdata = json.load(logjson)
 
     if type == "get":
-        return log
+        return logdata
 
     if type == "reset":
         log = {}
         for x in goodslist:
-            log.update({x:[0,0,0,0]}) # [0] amount bought, [1] for number of buyers, [2] amount sold, [3] for number of sellers
+            log.update({x:[0,0]}) # [0] total amount bought/sold, [1] for number of buyers/sellers
     
     if type == "buy":
-        log[good][0] += amount
-        log[good][1] += 1
+        logdata[good][0] += amount
+        logdata[good][1] += 1
 
     if type == "sell":
-        log[good][2] += amount
-        log[good][3] += 1
+        logdata[good][0] -= amount
+        logdata[good][1] -= 1
 
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','w') as logdata:
-        json.dump(log,logdata)
+    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','w') as logjson:
+        json.dump(logdata,logjson)
 
 def getcost(type,amount=None): #implementation with goods prices. Is this really necessary? Might be needed for .totalvalue
     pass
@@ -243,7 +264,7 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
     await bot.change_presence(activity=discord.Game(name='(.help)'))
     
     resetprices()
-    log("reset")
+    logger("reset")
 
     print('Stockbroker is ready.')
     #while True:
@@ -355,7 +376,7 @@ async def buy(ctx,order,amount):
     if purchasedetails[1] is True:
         user["money"] = user["money"] - purchasedetails[0]
         user["goods"] = setgoods("buy",user["goods"],order,amount) #changed from 'inventory' to 'user["goods"]'
-        log("buy",order,amount)
+        logger("buy",order,amount)
         await ctx.send("Purchased **" + str(amount) + " " + order + "** and paid " + str(purchasedetails[0]) + "$")
     else:
         await ctx.send("Transaction failed. You need " + str((purchasedetails[0] - user["money"])) + "$ more.")
@@ -370,7 +391,7 @@ async def sell(ctx,order,amount):
     if selldetails[1] is True:
         user["money"] = user["money"] + selldetails[0]
         user["goods"] = setgoods("sell",user["goods"],order,amount)
-        log("sell",order,amount)
+        logger("sell",order,amount)
         await ctx.send("Sold **" + str(amount) + " " + str(order) + "** and earned " + str(selldetails[0]) + "$")
     else:
         await ctx.send("Transaction failed. You need " + str(int(amount) - user["goods"][order]) + " more " + str(order))
@@ -393,19 +414,34 @@ async def test2(ctx):
 
     plt.close()
     fig = plt.figure()
-    xaxis = np.arange(0,40,1)
     prices = getprices()
 
+    history = 0
+    while True:
+        if prices[goodslist[0]][history] == 0:
+            break
+        history += 1
+
+    linestyles = [(0,(5,1)),(0,(1,1)),(0,(1,1)),'solid',(0,(5,1)),(0,(1,1)),(0,(3,5,1,5)),(0,(3,1,1,1)),'solid',(0, (3, 10, 1, 10, 1, 10)),(0, (3, 1, 1, 1, 1, 1)),'solid']
+
     plt.style.use('dark_background')
+
+    count = 0
     for x in prices:
-        plt.plot(xaxis,prices[x])
+        prices[x].reverse()
+        reversehistory = len(prices[x])-history
+        xaxis = np.arange(len(prices[x]),reversehistory,-1)
+        plt.plot(xaxis,prices[x][reversehistory:],linestyle=linestyles[count])
+        count += 1
+
     plt.axis([40,0,0,100])
     plt.vlines(range(40, 0, -5), 0, 100, linestyles='dashed', linewidth=0.5,colors='#fff')
     plt.hlines(range(10, 101, 10), 40, 0, linestyles='dashed', linewidth=0.5, colors='#fff')
     plt.ylabel('Price of stock ($)')
     plt.xlabel('Time since last update (min)')
     plt.title('Commodity price index')
-    plt.savefig('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png')
+    plt.legend(goodslist, bbox_to_anchor=(1.01, 1), borderaxespad=0.0)
+    plt.savefig('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png',bbox_inches='tight')
     plt.close()
 
 

@@ -97,7 +97,7 @@ def resetprices():
     for x in goodslist:
         goodarray = [0]*40
         prices.update({x:goodarray})
-        prices[x][0] = random.randint(11,99)
+        prices[x][0] = random.randint(11,70)
 
     setfileprices(prices)
 
@@ -107,6 +107,8 @@ async def updateprices(): #market trend algorithm goes here, asynchronous. Need 
 
     history = 0 #cycle through the history of all the goods to find length of good history
     while True:
+        if history == 39:
+            break
         if prices[goodslist[0]][history] == 0:
             break
         history += 1
@@ -130,15 +132,61 @@ async def updateprices(): #market trend algorithm goes here, asynchronous. Need 
 
         bias = (-((75*np.log(-(goodbias*userbias)+150))/np.log(12.24744872))+150)/150*3
 
+        if history == len(prices[goodslist[goodnum]])-1:
+            count = 0
+            while count < len(prices[goodslist[goodnum]])-1:
+                prices[goodslist[goodnum]][count] = prices[goodslist[goodnum]][count+1]
+                count += 1
+
         previousprice = prices[goodslist[goodnum]][history-1]
         prices[goodslist[goodnum]][history] = previousprice*(1+random.uniform(-0.0575+bias,0.0425+bias))
-        if prices[goodslist[goodnum]][history] >= 100:
+        
+        if prices[goodslist[goodnum]][history] >= 100: #check if good hits 100, needs another solution
             prices[goodslist[goodnum]][history] = 99
         goodnum += 1
     setfileprices(prices)
     return history
 
 def displayprices(): #asynchronous because it needs to run periodically while rest of the bot is running
+    plt.close()
+    fig = plt.figure()
+    prices = getprices()
+
+    history = 0
+    while True:
+        if history == 39:
+            break
+        if prices[goodslist[0]][history] == 0:
+            break
+        history += 1
+
+    linestyles = [(0,(5,1)),(0,(1,1)),(0,(1,1)),'solid',(0,(5,1)),(0,(1,1)),(0,(3,5,1,5)),(0,(3,1,1,1)),'solid',(0, (3, 10, 1, 10, 1, 10)),(0, (3, 1, 1, 1, 1, 1)),'solid']
+
+    plt.style.use('dark_background')
+
+    count = 0
+    for x in prices:
+        prices[x].reverse()
+        reversehistory = len(prices[x])-history
+        last = 1
+        if history == len(prices[x])-1: # spoof an extra step at 40 because there are 41 x axis points (0,40) but only 40 data points in price[x]
+            reversehistory = len(prices[x])-history-1
+            prices[x].append(prices[x][len(prices[x]-1)])
+            last = 0
+        xaxis = np.arange(reversehistory+last,len(prices[x])+1,1)
+        plt.plot(xaxis,prices[x][reversehistory:],linestyle=linestyles[count]) # xaxis 3, reverse 2
+        count += 1
+
+    plt.axis([40,0,0,100])
+    plt.vlines(range(40, 0, -5), 0, 100, linestyles='dashed', linewidth=0.5,colors='#fff')
+    plt.hlines(range(10, 101, 10), 40, 0, linestyles='dashed', linewidth=0.5, colors='#fff')
+    plt.ylabel('Price of stock ($)')
+    plt.xlabel('Time since last update (min)')
+    plt.title('Commodity price index')
+    plt.legend(goodslist, bbox_to_anchor=(1.01, 1), borderaxespad=0.0)
+    plt.savefig('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png',bbox_inches='tight')
+    plt.close()
+    
     indentedgoods = (
     "gold:        ",
     "silver:      ",
@@ -164,15 +212,16 @@ def displayprices(): #asynchronous because it needs to run periodically while re
             if y == 0:
                 break
             valuelength += 1
-            if valuelength == 9: #because only 10 values should be displayed in that message
-                break
+        
         count3 = 0
+        if valuelength >= 10:
+            count3 = valuelength-9
         while count3 < valuelength:
             message += str(int(round(prices[goodslist[goodtype]][count3],0))) #converted to int to remove decimal
             if count3 < valuelength-1: #so that the arrow that is added doesn't point into a null value
                 message += " ⟶ "
             count3 += 1
-        if valuelength == 10:
+        if valuelength-count3 == 10:
             message += str(int(round(prices[goodslist[goodtype]][count3],0))) #because we don't want a stupid arrow sticking out in the end. 
         goodtype += 1
     message += "```"
@@ -237,9 +286,10 @@ def logger(type,good=None,amount=None): #need good-specific logs, make new funct
         return logdata
 
     if type == "reset":
-        log = {}
+        print('hai')
+        logdata = {}
         for x in goodslist:
-            log.update({x:[0,0]}) # [0] total amount bought/sold, [1] for number of buyers/sellers
+            logdata.update({x:[0,0]}) # [0] total amount bought/sold, [1] for number of buyers/sellers
     
     if type == "buy":
         logdata[good][0] += amount
@@ -255,21 +305,30 @@ def logger(type,good=None,amount=None): #need good-specific logs, make new funct
 def getcost(type,amount=None): #implementation with goods prices. Is this really necessary? Might be needed for .totalvalue
     pass
 
-@bot.command() #Ping
-async def ping(ctx):
-    await ctx.send(f'Pong! The latency is **{round(bot.latency*1000)}ms**')
-
 @bot.event
 async def on_ready(): #needs to *start* with asyncio(time) because the prices are randomized when the script begins
     await bot.change_presence(activity=discord.Game(name='(.help)'))
-    
+
     resetprices()
     logger("reset")
 
     print('Stockbroker is ready.')
-    #while True:
-    #    await asyncio.sleep(20)
-    #    await updateprices()
+
+    while True:
+        message = displayprices()
+        channel = bot.get_channel(697800679569358968)
+        await channel.purge(limit=2)
+        await channel.send(message)
+        await channel.send(file=File('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png'))
+
+        await asyncio.sleep(4)
+
+        logger("reset")
+        await updateprices()
+
+@bot.command() #Ping
+async def ping(ctx):
+    await ctx.send(f'Pong! The latency is **{round(bot.latency*1000)}ms**')
 
 @bot.command()
 @commands.is_owner()
@@ -411,39 +470,6 @@ async def test(ctx):
 async def test2(ctx):
     channel = bot.get_channel(697800679569358968)
     await channel.purge(limit=2)
-
-    plt.close()
-    fig = plt.figure()
-    prices = getprices()
-
-    history = 0
-    while True:
-        if prices[goodslist[0]][history] == 0:
-            break
-        history += 1
-
-    linestyles = [(0,(5,1)),(0,(1,1)),(0,(1,1)),'solid',(0,(5,1)),(0,(1,1)),(0,(3,5,1,5)),(0,(3,1,1,1)),'solid',(0, (3, 10, 1, 10, 1, 10)),(0, (3, 1, 1, 1, 1, 1)),'solid']
-
-    plt.style.use('dark_background')
-
-    count = 0
-    for x in prices:
-        prices[x].reverse()
-        reversehistory = len(prices[x])-history
-        xaxis = np.arange(len(prices[x]),reversehistory,-1)
-        plt.plot(xaxis,prices[x][reversehistory:],linestyle=linestyles[count])
-        count += 1
-
-    plt.axis([40,0,0,100])
-    plt.vlines(range(40, 0, -5), 0, 100, linestyles='dashed', linewidth=0.5,colors='#fff')
-    plt.hlines(range(10, 101, 10), 40, 0, linestyles='dashed', linewidth=0.5, colors='#fff')
-    plt.ylabel('Price of stock ($)')
-    plt.xlabel('Time since last update (min)')
-    plt.title('Commodity price index')
-    plt.legend(goodslist, bbox_to_anchor=(1.01, 1), borderaxespad=0.0)
-    plt.savefig('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png',bbox_inches='tight')
-    plt.close()
-
 
     message = displayprices()
     channel = bot.get_channel(697800679569358968)

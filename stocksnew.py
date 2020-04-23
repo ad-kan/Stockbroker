@@ -48,6 +48,9 @@ import numpy as np
 bot = commands.Bot(command_prefix = '.')
 bot.remove_command('help')
 
+with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/key.json','r') as keys:
+    key = json.load(keys)
+
 goodslist = (
     "gold",
     "silver",
@@ -160,7 +163,7 @@ def displayprices(): #asynchronous because it needs to run periodically while re
             break
         history += 1
 
-    linestyles = [(0,(5,1)),(0,(1,1)),(0,(1,1)),'solid',(0,(5,1)),(0,(1,1)),(0,(3,5,1,5)),(0,(3,1,1,1)),'solid',(0, (3, 10, 1, 10, 1, 10)),(0, (3, 1, 1, 1, 1, 1)),'solid']
+    linestyles = [(0,(5,1)),(0,(1,1)),(0,(1,1)),'solid',(0,(5,1)),(0,(1,1)),(0,(5,1)),(0,(3,1,1,1)),'solid',(0, (3, 10, 1, 10, 1, 10)),(0, (3, 1, 1, 1, 1, 1)),'solid']
 
     plt.style.use('dark_background')
 
@@ -286,7 +289,6 @@ def logger(type,good=None,amount=None): #need good-specific logs, make new funct
         return logdata
 
     if type == "reset":
-        print('hai')
         logdata = {}
         for x in goodslist:
             logdata.update({x:[0,0]}) # [0] total amount bought/sold, [1] for number of buyers/sellers
@@ -321,7 +323,7 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
         await channel.send(message)
         await channel.send(file=File('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png'))
 
-        await asyncio.sleep(4)
+        await asyncio.sleep(60)
 
         logger("reset")
         await updateprices()
@@ -380,29 +382,32 @@ async def profile(ctx,*,member: discord.Member = None):
 
     user = getuserinfo(userid)
 
-    if str(nick) == 'None':
-        displayname = str(name)
-    else:
-        displayname = str(ctx.author.nick)
+    if user != None:
+        if str(nick) == 'None':
+            displayname = str(name)
+        else:
+            displayname = str(ctx.author.nick)
 
-    embed=discord.Embed(title=displayname+"'s profile")
-    
-    embed.add_field(name="**Money**", value=user["money"], inline=False)
-    
-    embed.add_field(name="Gold", value=user["goods"]["gold"], inline=True)
-    embed.add_field(name="Silver", value=user["goods"]["silver"], inline=True)
-    embed.add_field(name="Oil", value=user["goods"]["oil"], inline=True)
-    embed.add_field(name="Platinum", value=user["goods"]["platinum"], inline=True)
-    embed.add_field(name="Diamond", value=user["goods"]["platinum"], inline=True)
-    embed.add_field(name="Corn", value=user["goods"]["corn"], inline=True)
-    embed.add_field(name="Copper", value=user["goods"]["copper"], inline=True)
-    embed.add_field(name="Cotton", value=user["goods"]["cotton"], inline=True)
-    embed.add_field(name="Sugar", value=user["goods"]["sugar"], inline=True)
-    embed.add_field(name="Coal", value=user["goods"]["coal"], inline=True)
-    embed.add_field(name="Wheat", value=user["goods"]["wheat"], inline=True)
-    embed.add_field(name="Uranium", value=user["goods"]["uranium"], inline=True)
-    embed.set_footer(text="Stockbroker Revamped")
-    await ctx.send(embed=embed)
+        embed=discord.Embed(title=displayname+"'s profile")
+        
+        embed.add_field(name="**Money**", value=int(round(user["money"],0)), inline=False)
+        
+        embed.add_field(name="Gold", value=user["goods"]["gold"], inline=True)
+        embed.add_field(name="Silver", value=user["goods"]["silver"], inline=True)
+        embed.add_field(name="Oil", value=user["goods"]["oil"], inline=True)
+        embed.add_field(name="Platinum", value=user["goods"]["platinum"], inline=True)
+        embed.add_field(name="Diamond", value=user["goods"]["platinum"], inline=True)
+        embed.add_field(name="Corn", value=user["goods"]["corn"], inline=True)
+        embed.add_field(name="Copper", value=user["goods"]["copper"], inline=True)
+        embed.add_field(name="Cotton", value=user["goods"]["cotton"], inline=True)
+        embed.add_field(name="Sugar", value=user["goods"]["sugar"], inline=True)
+        embed.add_field(name="Coal", value=user["goods"]["coal"], inline=True)
+        embed.add_field(name="Wheat", value=user["goods"]["wheat"], inline=True)
+        embed.add_field(name="Uranium", value=user["goods"]["uranium"], inline=True)
+        embed.set_footer(text="Stockbroker Revamped")
+        await ctx.send(embed=embed)
+    else:
+        await ctx.send('Error, you are not registered. Please type ``.reset`` to register.')
 
 @bot.command()
 @commands.is_owner()
@@ -436,9 +441,11 @@ async def buy(ctx,order,amount):
         user["money"] = user["money"] - purchasedetails[0]
         user["goods"] = setgoods("buy",user["goods"],order,amount) #changed from 'inventory' to 'user["goods"]'
         logger("buy",order,amount)
-        await ctx.send("Purchased **" + str(amount) + " " + order + "** and paid " + str(purchasedetails[0]) + "$")
+        await ctx.send("Purchased **" + str(amount) + " " + order + "** and paid " + str(round(purchasedetails[0],0)) + "$")
     else:
-        await ctx.send("Transaction failed. You need " + str((purchasedetails[0] - user["money"])) + "$ more.")
+        await ctx.send("Transaction failed. You need " + str(round(purchasedetails[0] - user["money"],0)) + "$ more.")
+
+    setfileuser(userid,user)
 
 @bot.command()
 async def sell(ctx,order,amount):
@@ -451,7 +458,7 @@ async def sell(ctx,order,amount):
         user["money"] = user["money"] + selldetails[0]
         user["goods"] = setgoods("sell",user["goods"],order,amount)
         logger("sell",order,amount)
-        await ctx.send("Sold **" + str(amount) + " " + str(order) + "** and earned " + str(selldetails[0]) + "$")
+        await ctx.send("Sold **" + str(amount) + " " + str(order) + "** and earned " + str(round(selldetails[0],0)) + "$")
     else:
         await ctx.send("Transaction failed. You need " + str(int(amount) - user["goods"][order]) + " more " + str(order))
 
@@ -493,4 +500,4 @@ async def shutdown(ctx):
     print ('Stockbroker is shutting down.')
     await ctx.bot.logout()
 
-bot.run('Njk2MzM2NDg5OTc3NjEwMjQw.XonSQA.gcDAZmowaenwgvkWGafZ_RgkjTg')
+bot.run(key)

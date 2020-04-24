@@ -1,5 +1,5 @@
 # StockBroker
 
-StockBroker breaks stocks for you.
- 
+Flex tape can't fix what Stockbroker broke.
+
 Read requirements.txt for dependencies.

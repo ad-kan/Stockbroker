@@ -1,3 +1,5 @@
 # StockBroker
+
+StockBroker breaks stocks for you.
  
-Pretty fancy bot.
+Read requirements.txt for dependencies.

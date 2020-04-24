@@ -45,6 +45,10 @@ import numpy as np
 # do expensive stuff here
 # await channel.send('done!')
 
+# Amazon switching:
+# /home/ubuntu/
+# /Users/adityakannan/PythonProjects/
+
 bot = commands.Bot(command_prefix = '.')
 bot.remove_command('help')
 
@@ -100,7 +104,7 @@ def resetprices():
     for x in goodslist:
         goodarray = [0]*40
         prices.update({x:goodarray})
-        prices[x][0] = random.randint(11,70)
+        prices[x][0] = random.randint(30,70)
 
     setfileprices(prices)
 
@@ -142,7 +146,7 @@ async def updateprices(): #market trend algorithm goes here, asynchronous. Need 
                 count += 1
 
         previousprice = prices[goodslist[goodnum]][history-1]
-        prices[goodslist[goodnum]][history] = previousprice*(1+random.uniform(-0.0575+bias,0.0425+bias))
+        prices[goodslist[goodnum]][history] = previousprice+50*random.uniform(-0.0575+bias,0.0425+bias)
         
         if prices[goodslist[goodnum]][history] >= 100: #check if good hits 100, needs another solution
             prices[goodslist[goodnum]][history] = 99
@@ -226,7 +230,15 @@ def displayprices(): #asynchronous because it needs to run periodically while re
             count3 += 1
         if valuelength-count3 == 10:
             message += str(int(round(prices[goodslist[goodtype]][count3],0))) #because we don't want a stupid arrow sticking out in the end. 
-        goodtype += 1
+        if prices[goodslist[goodtype]][count3-2] > prices[goodslist[goodtype]][count3-1]:
+            message += " ⇣ "
+        elif prices[goodslist[goodtype]][count3-2] < prices[goodslist[goodtype]][count3-1]:
+            message += " ⇡ "
+        else:
+            message += " ● "
+        print(prices[goodslist[goodtype]][count3-2])
+        print(prices[goodslist[goodtype]][count3-1])
+        goodtype += 1    
     message += "```"
     return message
 
@@ -316,6 +328,7 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
 
     print('Stockbroker is ready.')
 
+    logcount = 0
     while True:
         message = displayprices()
         channel = bot.get_channel(697800679569358968)
@@ -325,8 +338,12 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
 
         await asyncio.sleep(60)
 
-        logger("reset")
         await updateprices()
+        logcount += 1
+        if logcount == 5:
+            logger("reset")
+            logcount = 0
+            print("logreset")
 
 @bot.command() #Ping
 async def ping(ctx):

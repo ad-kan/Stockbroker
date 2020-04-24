@@ -7,5 +7,5 @@ numpy==1.18.2
 nutritionix==0.2
 Pillow==7.1.0
 pylint==2.4.4
-requests==2.12.4
+requests==2.23.0
 scipy==1.4.1

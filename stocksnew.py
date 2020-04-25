@@ -47,12 +47,12 @@ import numpy as np
 
 # Amazon switching:
 # /home/ubuntu/
-# /Users/adityakannan/PythonProjects/
+# /home/ubuntu/
 
 bot = commands.Bot(command_prefix = '.')
 bot.remove_command('help')
 
-with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/key.json','r') as keys:
+with open('/home/ubuntu/Stocks_Revamped/key.json','r') as keys:
     key = json.load(keys)
 
 goodslist = (
@@ -71,23 +71,23 @@ goodslist = (
 )
 
 def setfileuser(userid,user):
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/userdata/'+str(userid)+'.json','w') as userdata:
+    with open('/home/ubuntu/Stocks_Revamped/userdata/'+str(userid)+'.json','w') as userdata:
         json.dump(user,userdata)
 
 def setfileprices(prices): #modularized function because expect future integration with SQL
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/prices/prices.json','w') as pricedata:
+    with open('/home/ubuntu/Stocks_Revamped/prices/prices.json','w') as pricedata:
         json.dump(prices,pricedata)
 
 def getuserinfo(userid):
     try:
-        with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/userdata/'+str(userid)+'.json','r') as userdata:
+        with open('/home/ubuntu/Stocks_Revamped/userdata/'+str(userid)+'.json','r') as userdata:
             user = json.load(userdata)
         return user 
     except Exception:
         return None #return ERROR instead!
 
 def getprices():
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/prices/prices.json','r') as pricedata:
+    with open('/home/ubuntu/Stocks_Revamped/prices/prices.json','r') as pricedata:
         return json.load(pricedata)
 
 def resetuser(userid=None):
@@ -191,7 +191,7 @@ def displayprices(): #asynchronous because it needs to run periodically while re
     plt.xlabel('Time since last update (min)')
     plt.title('Commodity price index')
     plt.legend(goodslist, bbox_to_anchor=(1.01, 1), borderaxespad=0.0)
-    plt.savefig('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png',bbox_inches='tight')
+    plt.savefig('/home/ubuntu/Stocks_Revamped/cache/prices.png',bbox_inches='tight')
     plt.close()
     
     indentedgoods = (
@@ -236,8 +236,6 @@ def displayprices(): #asynchronous because it needs to run periodically while re
             message += " ⇡ "
         else:
             message += " ● "
-        print(prices[goodslist[goodtype]][count3-2])
-        print(prices[goodslist[goodtype]][count3-1])
         goodtype += 1    
     message += "```"
     return message
@@ -294,7 +292,7 @@ def logger(type,good=None,amount=None): #need good-specific logs, make new funct
     if amount != None:
         amount = int(amount)
     
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','r') as logjson:
+    with open('/home/ubuntu/Stocks_Revamped/cache/activitylog.json','r') as logjson:
         logdata = json.load(logjson)
 
     if type == "get":
@@ -313,7 +311,7 @@ def logger(type,good=None,amount=None): #need good-specific logs, make new funct
         logdata[good][0] -= amount
         logdata[good][1] -= 1
 
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','w') as logjson:
+    with open('/home/ubuntu/Stocks_Revamped/cache/activitylog.json','w') as logjson:
         json.dump(logdata,logjson)
 
 def getcost(type,amount=None): #implementation with goods prices. Is this really necessary? Might be needed for .totalvalue
@@ -321,7 +319,7 @@ def getcost(type,amount=None): #implementation with goods prices. Is this really
 
 @bot.event
 async def on_ready(): #needs to *start* with asyncio(time) because the prices are randomized when the script begins
-    await bot.change_presence(activity=discord.Game(name='(.help)'))
+    #await bot.change_presence(activity=discord.Game(name='(.help)'))
 
     resetprices()
     logger("reset")
@@ -334,16 +332,20 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
         channel = bot.get_channel(697800679569358968)
         await channel.purge(limit=2)
         await channel.send(message)
-        await channel.send(file=File('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png'))
-
-        await asyncio.sleep(60)
+        await channel.send(file=File('/home/ubuntu/Stocks_Revamped/cache/prices.png'))
 
         await updateprices()
         logcount += 1
-        if logcount == 5:
+        if logcount == 3:
             logger("reset")
             logcount = 0
             print("logreset")
+
+        count = 60
+        while count>0:
+            await bot.change_presence(activity=discord.Game(name='.help | Time for reiteration: < ' + str(count) + ' seconds'))
+            await asyncio.sleep(15)
+            count -= 15
 
 @bot.command() #Ping
 async def ping(ctx):
@@ -434,10 +436,10 @@ async def credit(ctx,member: discord.Member,amount):
     user["money"] = user["money"]+int(amount)
 
     # ADD dictionary appending, etc. for logging. Long term proj.
-    # with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/userdata/creditlog.json','r') as creditlog:
+    # with open('/home/ubuntu/Stocks_Revamped/userdata/creditlog.json','r') as creditlog:
     #    json.load(creditlog)
     
-    # with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/userdata/creditlog.json','w') as creditlog:
+    # with open('/home/ubuntu/Stocks_Revamped/userdata/creditlog.json','w') as creditlog:
     #    json.dump(creditlog,log) 
 
     setfileuser(userid,user)
@@ -498,7 +500,7 @@ async def test2(ctx):
     message = displayprices()
     channel = bot.get_channel(697800679569358968)
     await channel.send(message)
-    await channel.send(file=File('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png'))
+    await channel.send(file=File('/home/ubuntu/Stocks_Revamped/cache/prices.png'))
 
 @bot.command()
 @commands.is_owner()

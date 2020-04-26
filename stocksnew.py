@@ -499,19 +499,23 @@ async def referral(ctx,type):
 
     if type == "create":
         channel = bot.get_channel(696825250033434634)
-        link = await channel.create_invite(max_age = 86400, max_uses = 5)
-        now = datetime.now()
+        link = await channel.create_invite(max_uses = 5)
+        invitelinkexists = 0
         try:
-            user["r_link"] = link.url
-            user["r_uses"] = 0
-            user["r_date"] = now.strftime("%m/%d/%Y, %H:%M:%S")
+            if user["r_link"] == None:
+                user["r_link"] = link.url
+                user["r_uses"] = 0
+            else:
+                await ctx.send("You already have an active referral link. Type ``.referral check`` to see more details on it.")
+                invitelinkexists = 1
         except:
             user.update({"r_link":link.url})
             user.update({"r_uses":0})
-            user.update({"r_date":now.strftime("%m/%d/%Y, %H:%M:%S")})
-        setfileuser(userid,user)
-        await ctx.send("Your invite link is generated successfully and has been sent to you privately.")
-        await userobject.send("Here's your invite link: " + link.url + ". \n \n It's valid for the next twenty four hours, and rewards can be redeemed for a maximum of 5 referrals. \n If you want more details on your referrals, type ``.check`` anywhere on the server.")
+
+        if invitelinkexists != 1:
+            setfileuser(userid,user)
+            await ctx.send("Your referral link is generated successfully and has been sent to you privately.")
+            await userobject.send("Here's your referral link: " + link.url + ". \n \n This referral link can be used for a maximum of 5 times. \n If you want more details on your referrals, type ``.referral check`` anywhere on the server.")
 
     if type == "check":
         guild = ctx.guild
@@ -522,10 +526,9 @@ async def referral(ctx,type):
                 break
         
         embed=discord.Embed(title="Referral details", url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
-        embed.add_field(name="Latest generated invite link", value=invite.url, inline=True)
+        embed.add_field(name="Your referral link", value=invite.url, inline=True)
         embed.add_field(name="Total users referred", value=invite.uses, inline=False)
-        date = timedelta(seconds=invite.max_age)
-        embed.add_field(name="Time till expiry", value=str(date), inline=False)
+        embed.add_field(name="Number of remaining referrals", value=5-invite.uses, inline=False)
         embed.set_footer(text="Stockbroker")
 
         await ctx.send("Your referral details have been sent to you privately.")

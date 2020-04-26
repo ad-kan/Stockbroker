@@ -1,6 +1,7 @@
 import discord
 from discord import File
 from discord.ext import commands
+import logging
 
 import time
 import asyncio
@@ -8,6 +9,9 @@ import json
 import random
 import matplotlib.pyplot as plt
 import numpy as np
+from datetime import datetime, timedelta
+
+logging.basicConfig(level=logging.INFO)
 
 # IDEAS:
 # add 1% multiplier or increased starting bank account with referrals
@@ -46,13 +50,13 @@ import numpy as np
 # await channel.send('done!')
 
 # Amazon switching:
-# /home/ubuntu/
-# /home/ubuntu/
+# /Users/adityakannan/PythonProjects/
+# /Users/adityakannan/PythonProjects/
 
 bot = commands.Bot(command_prefix = '.')
 bot.remove_command('help')
 
-with open('/home/ubuntu/Stocks_Revamped/key.json','r') as keys:
+with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/key.json','r') as keys:
     key = json.load(keys)
 
 goodslist = (
@@ -71,30 +75,32 @@ goodslist = (
 )
 
 def setfileuser(userid,user):
-    with open('/home/ubuntu/Stocks_Revamped/userdata/'+str(userid)+'.json','w') as userdata:
+    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/userdata/'+str(userid)+'.json','w') as userdata:
         json.dump(user,userdata)
 
 def setfileprices(prices): #modularized function because expect future integration with SQL
-    with open('/home/ubuntu/Stocks_Revamped/prices/prices.json','w') as pricedata:
+    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/prices/prices.json','w') as pricedata:
         json.dump(prices,pricedata)
 
 def getuserinfo(userid):
     try:
-        with open('/home/ubuntu/Stocks_Revamped/userdata/'+str(userid)+'.json','r') as userdata:
+        with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/userdata/'+str(userid)+'.json','r') as userdata:
             user = json.load(userdata)
         return user 
     except Exception:
         return None #return ERROR instead!
 
 def getprices():
-    with open('/home/ubuntu/Stocks_Revamped/prices/prices.json','r') as pricedata:
+    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/prices/prices.json','r') as pricedata:
         return json.load(pricedata)
 
-def resetuser(userid=None):
+def resetuser(userid=None,r_link=None,r_uses=None):
     user = {
         'userid': userid,
         'money': 1000,
-        'goods': setgoods("start")
+        'goods': setgoods("start"),
+        'referral': r_link,
+        'referral-uses': r_uses,
     }
 
     setfileuser(userid,user)
@@ -191,7 +197,7 @@ def displayprices(): #asynchronous because it needs to run periodically while re
     plt.xlabel('Time since last update (min)')
     plt.title('Commodity price index')
     plt.legend(goodslist, bbox_to_anchor=(1.01, 1), borderaxespad=0.0)
-    plt.savefig('/home/ubuntu/Stocks_Revamped/cache/prices.png',bbox_inches='tight')
+    plt.savefig('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png',bbox_inches='tight')
     plt.close()
     
     indentedgoods = (
@@ -292,7 +298,7 @@ def logger(type,good=None,amount=None): #need good-specific logs, make new funct
     if amount != None:
         amount = int(amount)
     
-    with open('/home/ubuntu/Stocks_Revamped/cache/activitylog.json','r') as logjson:
+    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','r') as logjson:
         logdata = json.load(logjson)
 
     if type == "get":
@@ -311,7 +317,7 @@ def logger(type,good=None,amount=None): #need good-specific logs, make new funct
         logdata[good][0] -= amount
         logdata[good][1] -= 1
 
-    with open('/home/ubuntu/Stocks_Revamped/cache/activitylog.json','w') as logjson:
+    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','w') as logjson:
         json.dump(logdata,logjson)
 
 def getcost(type,amount=None): #implementation with goods prices. Is this really necessary? Might be needed for .totalvalue
@@ -332,14 +338,13 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
         channel = bot.get_channel(697800679569358968)
         await channel.purge(limit=2)
         await channel.send(message)
-        await channel.send(file=File('/home/ubuntu/Stocks_Revamped/cache/prices.png'))
+        await channel.send(file=File('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png'))
 
         await updateprices()
         logcount += 1
         if logcount == 3:
             logger("reset")
             logcount = 0
-            print("logreset")
 
         count = 60
         while count>0:
@@ -423,7 +428,7 @@ async def profile(ctx,*,member: discord.Member = None):
         embed.add_field(name="Coal", value=user["goods"]["coal"], inline=True)
         embed.add_field(name="Wheat", value=user["goods"]["wheat"], inline=True)
         embed.add_field(name="Uranium", value=user["goods"]["uranium"], inline=True)
-        embed.set_footer(text="Stockbroker Revamped")
+        embed.set_footer(text="Stockbroker")
         await ctx.send(embed=embed)
     else:
         await ctx.send('Error, you are not registered. Please type ``.reset`` to register.')
@@ -436,10 +441,10 @@ async def credit(ctx,member: discord.Member,amount):
     user["money"] = user["money"]+int(amount)
 
     # ADD dictionary appending, etc. for logging. Long term proj.
-    # with open('/home/ubuntu/Stocks_Revamped/userdata/creditlog.json','r') as creditlog:
+    # with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/userdata/creditlog.json','r') as creditlog:
     #    json.load(creditlog)
     
-    # with open('/home/ubuntu/Stocks_Revamped/userdata/creditlog.json','w') as creditlog:
+    # with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/userdata/creditlog.json','w') as creditlog:
     #    json.dump(creditlog,log) 
 
     setfileuser(userid,user)
@@ -487,6 +492,49 @@ async def sell(ctx,order,amount):
         await ctx.send('Error, you are not registered. Please type ``.reset`` to register')
 
 @bot.command()
+async def referral(ctx,type):
+    userid = ctx.author.id
+    user = getuserinfo(userid)
+    userobject = bot.get_user(userid)
+
+    if type == "create":
+        channel = bot.get_channel(696825250033434634)
+        link = await channel.create_invite(max_age = 86400, max_uses = 5)
+        now = datetime.now()
+        try:
+            user["r_link"] = link.url
+            user["r_uses"] = 0
+            user["r_date"] = now.strftime("%m/%d/%Y, %H:%M:%S")
+        except:
+            user.update({"r_link":link.url})
+            user.update({"r_uses":0})
+            user.update({"r_date":now.strftime("%m/%d/%Y, %H:%M:%S")})
+        setfileuser(userid,user)
+        await ctx.send("Your invite link is generated successfully and has been sent to you privately.")
+        await userobject.send("Here's your invite link: " + link.url + ". \n \n It's valid for the next twenty four hours, and rewards can be redeemed for a maximum of 5 referrals. \n If you want more details on your referrals, type ``.check`` anywhere on the server.")
+
+    if type == "check":
+        guild = ctx.guild
+
+        invitemeta = await guild.invites()
+        for invite in invitemeta:
+            if invite.url == user["r_link"]:
+                break
+        
+        embed=discord.Embed(title="Referral details", url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+        embed.add_field(name="Latest generated invite link", value=invite.url, inline=True)
+        embed.add_field(name="Total users referred", value=invite.uses, inline=False)
+        date = timedelta(seconds=invite.max_age)
+        embed.add_field(name="Time till expiry", value=str(date), inline=False)
+        embed.set_footer(text="Stockbroker")
+
+        await ctx.send("Your referral details have been sent to you privately.")
+        await userobject.send(embed=embed)
+
+        # await user.send('ey')
+    # 'check', 'create', 'redeem' more the users invited, more the reward (like FoE's tavern house)
+
+@bot.command()
 @commands.is_owner()
 async def test(ctx):
     await updateprices()
@@ -500,7 +548,7 @@ async def test2(ctx):
     message = displayprices()
     channel = bot.get_channel(697800679569358968)
     await channel.send(message)
-    await channel.send(file=File('/home/ubuntu/Stocks_Revamped/cache/prices.png'))
+    await channel.send(file=File('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png'))
 
 @bot.command()
 @commands.is_owner()

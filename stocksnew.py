@@ -94,13 +94,14 @@ def getprices():
     with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/prices/prices.json','r') as pricedata:
         return json.load(pricedata)
 
-def resetuser(userid=None,r_link=None,r_uses=None):
+def resetuser(userid=None,r_link=None,r_uses=0,r_redeemed=0):
     user = {
         'userid': userid,
         'money': 1000,
         'goods': setgoods("start"),
         'referral': r_link,
         'referral-uses': r_uses,
+        'referral-redeemed': r_redeemed,
     }
 
     setfileuser(userid,user)
@@ -356,6 +357,23 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
 async def ping(ctx):
     await ctx.send(f'Pong! The latency is **{round(bot.latency*1000)}ms**')
 
+@bot.event
+async def on_message(message):
+    if message.content.startswith('.redeem'): #REMEMBER TO UPDATE USED REFERRALS UNDER .REDEEM TOOOOO!!!!!!!!!!
+        user = getuserinfo(message.author.id)
+        channel = message.channel
+        await channel.send(str(user["r_uses"]) + ' out of 5 people have used your referral link, and you have **' + str(5-user["r_redeemed"]) + '** new rewards to redeem.')
+        if (user["r_uses"]-user["r_redeemed"]) > 0:
+            await channel.send('If you want to redeem them now, type "yes". If not, type anything else to exit.')
+            try:
+                response = await bot.wait_for('message', timeout = 30.0)
+            except asyncio.TimeoutError:
+                await channel.send('You did not respond in 30 seconds')
+            if response == "yes":
+                await channel.send('You can redeem ')
+
+    await bot.process_commands(message)
+
 @bot.command()
 @commands.is_owner()
 async def postupdates(ctx):
@@ -492,11 +510,13 @@ async def sell(ctx,order,amount):
         await ctx.send('Error, you are not registered. Please type ``.reset`` to register')
 
 @bot.command()
-async def referral(ctx,type):
+async def referral(ctx,type=None):
     userid = ctx.author.id
     user = getuserinfo(userid)
     userobject = bot.get_user(userid)
 
+    if type == "None":
+        pass
     if type == "create":
         channel = bot.get_channel(696825250033434634)
         link = await channel.create_invite(max_uses = 5)
@@ -505,12 +525,14 @@ async def referral(ctx,type):
             if user["r_link"] == None:
                 user["r_link"] = link.url
                 user["r_uses"] = 0
+                user["r_redeemed"] = 0
             else:
                 await ctx.send("You already have an active referral link. Type ``.referral check`` to see more details on it.")
                 invitelinkexists = 1
         except:
             user.update({"r_link":link.url})
             user.update({"r_uses":0})
+            user.update({"r_redeemed":0})
 
         if invitelinkexists != 1:
             setfileuser(userid,user)

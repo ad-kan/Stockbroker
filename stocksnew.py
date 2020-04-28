@@ -100,8 +100,8 @@ def resetuser(userid=None,r_link=None,r_uses=0,r_redeemed=0):
         'money': 1000,
         'goods': setgoods("start"),
         'referral': r_link,
-        'referral-uses': r_uses,
-        'referral-redeemed': r_redeemed,
+        'r_uses': r_uses,
+        'r_redeemed': r_redeemed,
     }
 
     setfileuser(userid,user)
@@ -357,22 +357,9 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
 async def ping(ctx):
     await ctx.send(f'Pong! The latency is **{round(bot.latency*1000)}ms**')
 
-@bot.event
-async def on_message(message):
-    if message.content.startswith('.redeem'): #REMEMBER TO UPDATE USED REFERRALS UNDER .REDEEM TOOOOO!!!!!!!!!!
-        user = getuserinfo(message.author.id)
-        channel = message.channel
-        await channel.send(str(user["r_uses"]) + ' out of 5 people have used your referral link, and you have **' + str(5-user["r_redeemed"]) + '** new rewards to redeem.')
-        if (user["r_uses"]-user["r_redeemed"]) > 0:
-            await channel.send('If you want to redeem them now, type "yes". If not, type anything else to exit.')
-            try:
-                response = await bot.wait_for('message', timeout = 30.0)
-            except asyncio.TimeoutError:
-                await channel.send('You did not respond in 30 seconds')
-            if response == "yes":
-                await channel.send('You can redeem ')
-
-    await bot.process_commands(message)
+#@bot.event
+#async def on_message(message):
+#    await bot.process_commands(message)
 
 @bot.command()
 @commands.is_owner()
@@ -546,16 +533,70 @@ async def referral(ctx,type=None):
         for invite in invitemeta:
             if invite.url == user["r_link"]:
                 break
+
+        user["r_uses"] = invite.uses
         
         embed=discord.Embed(title="Referral details", url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
         embed.add_field(name="Your referral link", value=invite.url, inline=True)
         embed.add_field(name="Total users referred", value=invite.uses, inline=False)
+        embed.add_field(name="Total rewards redeemed", value=user["r_redeemed"],inline=False)
         embed.add_field(name="Number of remaining referrals", value=5-invite.uses, inline=False)
         embed.set_footer(text="Stockbroker")
 
         await ctx.send("Your referral details have been sent to you privately.")
         await userobject.send(embed=embed)
 
+    if type == "redeem":
+        user = getuserinfo(ctx.author.id)
+        channel = ctx.channel
+        guild = ctx.guild
+
+        invitemeta = await guild.invites()
+        for invite in invitemeta:
+            if invite.url == user["r_link"]:
+                break
+        user["r_uses"] = invite.uses
+        reward = user["r_uses"]-user["r_redeemed"]
+        
+        def check(m):
+            return m.content in ['yes','exit'] and m.channel == channel and ctx.author.id == user["userid"]
+        def check2(m):
+            return m.channel == channel and ctx.author.id == user["userid"]
+
+        s = ""
+        if reward != 1:
+            s = "s"
+        await channel.send(str(user["r_uses"]) + ' out of 5 people have used your referral link, and you have **' + str(reward) + '** new reward' + s + ' to redeem.')
+        if (user["r_uses"]-user["r_redeemed"]) > 0:
+            await ctx.send('If you want to redeem them now, type ``yes``. If not, ``exit``.')
+            try:
+                response = await bot.wait_for('message', check=check, timeout = 30.0)
+                response = response.content.lower()
+            except asyncio.TimeoutError:
+                await ctx.send('You did not respond in 30 seconds')
+            if response == "yes":
+                await ctx.send('Your reward is **' + str(100*reward) + '** goods of your choice! Type the name of the good you want to redeem. Type ``exit`` to exit.')
+                try:
+                    response2 = await bot.wait_for('message',check=check2, timeout = 30.0)
+                    response2 = response2.content.lower()
+                except asyncio.TimeoutError:
+                    await ctx.send('You did not respond in 30 seconds')
+                nogood = 0
+                if response2 != 'exit':
+                    for x in goodslist:
+                        if x == response2:
+                            user["goods"] = setgoods("buy",user["goods"],response2,(100*reward))
+                            user["r_redeemed"] += reward
+                            await ctx.send(str(100*reward) + " goods were credited to your account successfully.")
+                            nogood = 1
+                            break
+                    if nogood != 1:
+                        await ctx.send("Invalid response. Type ``.referral redeem`` to try again.")
+                elif response2 == 'exit':
+                    await ctx.send(':thumbsup: Your rewards are still available for redeeming.')
+            elif response == 'exit':
+                await ctx.send(':thumbsup: Your rewards are still available for redeeming.')
+            setfileuser(ctx.author.id,user)
         # await user.send('ey')
     # 'check', 'create', 'redeem' more the users invited, more the reward (like FoE's tavern house)
 

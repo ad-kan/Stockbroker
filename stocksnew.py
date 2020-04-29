@@ -268,11 +268,15 @@ def canafford(money,order,amount): #returns True/False + money required in the f
         if x == 0:
             break
         count += 1
+    
+    if amount == "all":
+        amount = int(money/prices[order][count])
+        cost = int(prices[order][count])
+    else:
+        cost = int(amount)*int(prices[order][count])
 
-    cost = int(amount)*prices[order][count]
-
-    if cost < money:
-        purchasedetails = [cost,True]
+    if cost < money and cost != 0:
+        purchasedetails = [cost,True,amount]
     else:
         purchasedetails = [cost,False]
 
@@ -285,11 +289,17 @@ def cansell(inventory,order,amount): #returns T/F and how much money made
         if x == 0:
             break
         count += 1
+
+    if amount == "all":
+        if inventory[order] != 0:
+            amount = inventory[order]
+        else:
+            amount = 0
     
     earning = int(amount)*prices[order][count]
 
-    if int(amount) <= inventory[order]:
-        selldetails = [earning,True]
+    if int(amount) <= inventory[order] and amount != 0:
+        selldetails = [earning,True,amount]
     else:
         selldetails = [earning,False]
 
@@ -323,6 +333,32 @@ def logger(type,good=None,amount=None): #need good-specific logs, make new funct
 
 def getcost(type,amount=None): #implementation with goods prices. Is this really necessary? Might be needed for .totalvalue
     pass
+
+def userlist(type,userid=None):
+    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/userlist.json','r') as idlist:
+        userlist = json.load(idlist)
+
+    if type == "join":
+        userlist.append(userid)
+    if type == "leave":
+        userlist.remove(userid)
+    if type == "get":
+        return userlist
+
+    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/userlist.json','w') as idlist:
+        json.dump(userlist,idlist)
+
+def leaderboardupdate():
+    lister = userlist("get")
+    leaderboard = {}
+    for i in lister:
+        with open('/Users/adityakannan/PythonProjects/Stocks_revamped/userdata/' + str(i) + '.json','r') as userdata:
+            user = json.load(userdata)
+        leaderboard.update({user["money"]:i})
+
+    leaderboard = sorted(leaderboard.items(),reverse=True)
+
+    return leaderboard
 
 @bot.event
 async def on_ready(): #needs to *start* with asyncio(time) because the prices are randomized when the script begins
@@ -375,9 +411,15 @@ async def on_member_join(member): #direct them to rules or #verification or what
 
     if getuserinfo(userid) == None:
         resetuser(userid)
-        await channel.send("Welcome to Stock Exchange, @"+str(member.name)+" ("+str(userid)+")! You have been automatically been registered.")
+        await channel.send("Welcome to Stock Exchange, <@"+str(userid)+">! You have been automatically been registered.")
     else:
         await channel.send("Welcome to Stock Exchange, <@"+str(userid)+">! Your data has been recovered.")
+    userlist("join",userid)
+
+@bot.event
+async def on_member_remove(member):
+    userid = member.id
+    userlist("leave",userid)
 
 @bot.command()
 async def reset(ctx,*,member: discord.Member = None): #add user as an argument so ONLY admins can reset, figure out roles, add referrals, lottos, etc.
@@ -465,14 +507,22 @@ async def buy(ctx,order,amount):
         await ctx.send('Error, you are not registered. Please type ``.reset`` to register')
 
     purchasedetails = canafford(user["money"],order,amount)
+    
+    if amount == "all":
+        if purchasedetails[1] is True:
+            amount = purchasedetails[2]
+        else:
+            amount = 0
+
+    amount = int(amount) #for sales too
 
     if purchasedetails[1] is True:
         user["money"] = user["money"] - purchasedetails[0]
         user["goods"] = setgoods("buy",user["goods"],order,amount) #changed from 'inventory' to 'user["goods"]'
         logger("buy",order,amount)
-        await ctx.send("Purchased **" + str(amount) + " " + order + "** and paid " + str(round(purchasedetails[0],0)) + "$")
+        await ctx.send("Purchased **" + str(amount) + " " + order + "** and paid " + str(int(purchasedetails[0])) + "$")
     else:
-        await ctx.send("Transaction failed. You need " + str(round(purchasedetails[0] - user["money"],0)) + "$ more.")
+        await ctx.send("Transaction failed. You need " + str(int(purchasedetails[0] - user["money"])) + "$ more.")
 
     setfileuser(userid,user)
 
@@ -483,13 +533,21 @@ async def sell(ctx,order,amount):
     
     selldetails = cansell(user["goods"],order,amount) #to check if they have enough goods
 
+    if amount == "all":
+        if selldetails[1] is True:
+            amount = selldetails[2]
+        else:
+            amount = 0
+
     if selldetails[1] is True:
         user["money"] = user["money"] + selldetails[0]
         user["goods"] = setgoods("sell",user["goods"],order,amount)
         logger("sell",order,amount)
-        await ctx.send("Sold **" + str(amount) + " " + str(order) + "** and earned " + str(round(selldetails[0],0)) + "$")
+        await ctx.send("Sold **" + str(amount) + " " + str(order) + "** and earned " + str(int(selldetails[0])) + "$")
+    elif user["goods"][order] == 0:
+        await ctx.send("Transaction failed. You don't own any " + str(order) + ".")
     else:
-        await ctx.send("Transaction failed. You need " + str(int(amount) - user["goods"][order]) + " more " + str(order))
+        await ctx.send("Transaction failed. You need " + str(int(amount) - user["goods"][order]) + " more " + str(order) + ".")
 
     try:
         setfileuser(userid,user)
@@ -587,7 +645,7 @@ async def referral(ctx,type=None):
                         if x == response2:
                             user["goods"] = setgoods("buy",user["goods"],response2,(100*reward))
                             user["r_redeemed"] += reward
-                            await ctx.send(str(100*reward) + " goods were credited to your account successfully.")
+                            await ctx.send(str("**"+ (100*reward) + " " + response2 + "** was credited to your account successfully."))
                             nogood = 1
                             break
                     if nogood != 1:
@@ -615,6 +673,23 @@ async def test2(ctx):
     channel = bot.get_channel(697800679569358968)
     await channel.send(message)
     await channel.send(file=File('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png'))
+
+@bot.command()
+@commands.is_owner()
+async def l_update(ctx):
+    leaderboard = leaderboardupdate()
+    
+    message = "```autohotkey" + "\nLeaderboard\n\n"
+    count = 0
+    for x in leaderboard:
+        user = bot.get_user(leaderboard[count][1])
+        message += '(' + str(count+1) + ') ' + user.name + ': ' + str(int(leaderboard[count][0])) + '\n'
+        count += 1
+    
+    message += "```"
+    
+    channel = bot.get_channel(704978980666867763)
+    await channel.send(message)
 
 @bot.command()
 @commands.is_owner()

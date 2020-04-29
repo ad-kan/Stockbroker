@@ -22,8 +22,6 @@ logging.basicConfig(level=logging.INFO)
 # banks with interest
 # implied volatility
 # limits for artificial inflation
-# make it extensibile and modular
-# relegate stuff to functions
 # unbought/dead stocks need to depreciate by a standard factor but RNG must be stronger 
 # events, stock upturns/dowturns, etc.
 # have periodic events with high IV goods
@@ -39,8 +37,6 @@ logging.basicConfig(level=logging.INFO)
 # Type = Method of manipulating the said data, ex: type "start" in getgoods() means the amount of goods a user is assigned while starting off
 
 # TODOLIST:
-# program .sell and .sellall
-# centralize goodlist list
 # add .help
 
 # LONGTERM TODOLIST:
@@ -295,7 +291,7 @@ def cansell(inventory,order,amount): #returns T/F and how much money made
             amount = inventory[order]
         else:
             amount = 0
-    
+
     earning = int(amount)*prices[order][count]
 
     if int(amount) <= inventory[order] and amount != 0:
@@ -377,7 +373,6 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
         await channel.send(message)
         await channel.send(file=File('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png'))
 
-        await updateprices()
         logcount += 1
         if logcount == 3:
             logger("reset")
@@ -388,6 +383,7 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
             await bot.change_presence(activity=discord.Game(name='.help | Time for reiteration: < ' + str(count) + ' seconds'))
             await asyncio.sleep(15)
             count -= 15
+        await updateprices()
 
 @bot.command() #Ping
 async def ping(ctx):
@@ -527,27 +523,43 @@ async def buy(ctx,order,amount):
     setfileuser(userid,user)
 
 @bot.command()
-async def sell(ctx,order,amount):
+async def sell(ctx,order,amount=None):
     userid = ctx.author.id
     user = getuserinfo(userid)
-    
-    selldetails = cansell(user["goods"],order,amount) #to check if they have enough goods
 
-    if amount == "all":
-        if selldetails[1] is True:
-            amount = selldetails[2]
+    if order == "all":
+        ownedgoods = []
+        totalearning = 0
+        for x in user["goods"]:
+            if user["goods"][x] != 0:
+                ownedgoods.append(x)
+        for x in ownedgoods:
+            selldetails = cansell(user["goods"],x,"all")
+            user["goods"] = setgoods("sell",user["goods"],x,selldetails[2])
+            totalearning += selldetails[0]
+        user["money"] += totalearning
+        if totalearning != 0:
+            await ctx.send("Sold all of your goods and earned " + str(int(totalearning)) + "$")
         else:
-            amount = 0
-
-    if selldetails[1] is True:
-        user["money"] = user["money"] + selldetails[0]
-        user["goods"] = setgoods("sell",user["goods"],order,amount)
-        logger("sell",order,amount)
-        await ctx.send("Sold **" + str(amount) + " " + str(order) + "** and earned " + str(int(selldetails[0])) + "$")
-    elif user["goods"][order] == 0:
-        await ctx.send("Transaction failed. You don't own any " + str(order) + ".")
+            await ctx.send("Transaction failed. You don't currently own any goods.")
     else:
-        await ctx.send("Transaction failed. You need " + str(int(amount) - user["goods"][order]) + " more " + str(order) + ".")
+        selldetails = cansell(user["goods"],order,amount) #to check if they have enough goods
+
+        if amount == "all":
+            if selldetails[1] is True:
+                amount = selldetails[2]
+            else:
+                amount = 0
+
+        if selldetails[1] is True:
+            user["money"] += selldetails[0]
+            user["goods"] = setgoods("sell",user["goods"],order,amount)
+            logger("sell",order,amount)
+            await ctx.send("Sold **" + str(amount) + " " + str(order) + "** and earned " + str(int(selldetails[0])) + "$")
+        elif user["goods"][order] == 0:
+            await ctx.send("Transaction failed. You don't own any " + str(order) + ".")
+        else:
+            await ctx.send("Transaction failed. You need " + str(int(amount) - user["goods"][order]) + " more " + str(order) + ".")
 
     try:
         setfileuser(userid,user)

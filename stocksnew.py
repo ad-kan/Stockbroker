@@ -367,23 +367,27 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
 
     logcount = 0
     while True:
-        message = displayprices()
-        channel = bot.get_channel(697800679569358968)
-        await channel.purge(limit=2)
-        await channel.send(message)
-        await channel.send(file=File('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png'))
+        await l_update()
+        count = 0
+        while count < 5:
+            message = displayprices()
+            channel = bot.get_channel(697800679569358968)
+            await channel.purge(limit=2)
+            await channel.send(message)
+            await channel.send(file=File('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png'))
 
-        logcount += 1
-        if logcount == 3:
-            logger("reset")
-            logcount = 0
+            logcount += 1
+            if logcount == 3:
+                logger("reset")
+                logcount = 0
 
-        count = 60
-        while count>0:
-            await bot.change_presence(activity=discord.Game(name='.help | Time for reiteration: < ' + str(count) + ' seconds'))
-            await asyncio.sleep(15)
-            count -= 15
-        await updateprices()
+            count2 = 0
+            while count2<60:
+                await bot.change_presence(activity=discord.Game(name='.help | Time for reiteration: < ' + str(count) + ' seconds'))
+                await asyncio.sleep(15)
+                count2 += 15
+            await updateprices()
+            count += 1
 
 @bot.command() #Ping
 async def ping(ctx):
@@ -677,7 +681,7 @@ async def test(ctx):
 
 @bot.command()
 @commands.is_owner()
-async def test2(ctx):
+async def test2():
     channel = bot.get_channel(697800679569358968)
     await channel.purge(limit=2)
 
@@ -688,7 +692,7 @@ async def test2(ctx):
 
 @bot.command()
 @commands.is_owner()
-async def l_update(ctx):
+async def l_update():
     leaderboard = leaderboardupdate()
     
     message = "```autohotkey" + "\nLeaderboard\n\n"
@@ -701,6 +705,7 @@ async def l_update(ctx):
     message += "```"
     
     channel = bot.get_channel(704978980666867763)
+    await channel.purge(limit=1)
     await channel.send(message)
 
 @bot.command()

@@ -735,6 +735,8 @@ async def l_update():
         user = bot.get_user(leaderboard[count][1])
         message += '(' + str(count+1) + ') ' + user.name + ': ' + str(int(leaderboard[count][0])) + '\n'
         count += 1
+        if count == 10:
+            break
     
     message += "```"
     

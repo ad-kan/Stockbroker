@@ -227,7 +227,7 @@ def displayprices(): #asynchronous because it needs to run periodically while re
         if valuelength >= 10:
             count3 = valuelength-9
         while count3 < valuelength:
-            message += str(int(round(prices[goodslist[goodtype]][count3],0))) #converted to int to remove decimal
+            message += str(int(prices[goodslist[goodtype]][count3])) #converted to int to remove decimal
             if count3 < valuelength-1: #so that the arrow that is added doesn't point into a null value
                 message += " ⟶ "
             count3 += 1
@@ -267,7 +267,10 @@ def canafford(money,order,amount): #returns True/False + money required in the f
     
     if amount == "all":
         amount = int(money/prices[order][count])
-        cost = int(prices[order][count])
+        if amount == 0:
+            cost = int(prices[order][count])
+        else:
+            cost = int(prices[order][count])*amount
     else:
         cost = int(amount)*int(prices[order][count])
 
@@ -515,7 +518,7 @@ async def buy(ctx,order,amount):
             amount = 0
 
     amount = int(amount) #for sales too
-
+    
     if purchasedetails[1] is True:
         user["money"] = user["money"] - purchasedetails[0]
         user["goods"] = setgoods("buy",user["goods"],order,amount) #changed from 'inventory' to 'user["goods"]'
@@ -531,44 +534,75 @@ async def sell(ctx,order,amount=None):
     userid = ctx.author.id
     user = getuserinfo(userid)
 
+    go = 0
+    for x in goodslist:
+        if order == x:
+            go = 1
+            break
     if order == "all":
-        ownedgoods = []
-        totalearning = 0
-        for x in user["goods"]:
-            if user["goods"][x] != 0:
-                ownedgoods.append(x)
-        for x in ownedgoods:
-            selldetails = cansell(user["goods"],x,"all")
-            user["goods"] = setgoods("sell",user["goods"],x,selldetails[2])
-            totalearning += selldetails[0]
-        user["money"] += totalearning
-        if totalearning != 0:
-            await ctx.send("Sold all of your goods and earned " + str(int(totalearning)) + "$")
-        else:
-            await ctx.send("Transaction failed. You don't currently own any goods.")
-    else:
-        selldetails = cansell(user["goods"],order,amount) #to check if they have enough goods
+        go = 1
 
-        if amount == "all":
-            if selldetails[1] is True:
-                amount = selldetails[2]
+    if go == 1:
+        if order == "all":
+            ownedgoods = []
+            soldgoods = {}
+            totalearning = 0
+            for x in user["goods"]:
+                if user["goods"][x] != 0:
+                    ownedgoods.append(x)
+            for x in ownedgoods:
+                selldetails = cansell(user["goods"],x,"all")
+                soldgoods.update({x:[selldetails[2],selldetails[0]]}) #name of good, amount of good, money made
+                user["goods"] = setgoods("sell",user["goods"],x,selldetails[2])
+                totalearning += selldetails[0]
+            user["money"] += totalearning
+            if totalearning != 0:
+                message = await ctx.send("Sold all of your goods and earned " + str(int(totalearning)) + "$")
+                setfileuser(userid,user)
+                
+                def check(reaction,user):
+                    return user == ctx.author and str(reaction.emoji) == '❔'
+                await message.add_reaction('❔')
+                try:
+                    reaction, user = await bot.wait_for('reaction_add',timeout=30.0,check=check)
+                    if str(reaction.emoji) == '❔':
+                        addmessage = "```autohotkey"
+                        count = 0
+                        for x in ownedgoods:
+                            addmessage += "\n (" + str(count+1) + ") " + str(soldgoods[x][1]) + "$ from " + str(soldgoods[x][0]) + " " + x
+                        addmessage += "```"
+                        await message.edit(content="Sold all of your goods and earned " + str(int(totalearning)) + "$\n" + addmessage)
+                except asyncio.TimeoutError:
+                    await message.clear_reaction('❔')
             else:
-                amount = 0
-
-        if selldetails[1] is True:
-            user["money"] += selldetails[0]
-            user["goods"] = setgoods("sell",user["goods"],order,amount)
-            logger("sell",order,amount)
-            await ctx.send("Sold **" + str(amount) + " " + str(order) + "** and earned " + str(int(selldetails[0])) + "$")
-        elif user["goods"][order] == 0:
-            await ctx.send("Transaction failed. You don't own any " + str(order) + ".")
+                await ctx.send("Transaction failed. You don't currently own any goods.")
         else:
-            await ctx.send("Transaction failed. You need " + str(int(amount) - user["goods"][order]) + " more " + str(order) + ".")
+            if str(type(amount)) == "<class 'int'>":
+                selldetails = cansell(user["goods"],order,amount) #to check if they have enough goods
 
-    try:
-        setfileuser(userid,user)
-    except: #make this a function
-        await ctx.send('Error, you are not registered. Please type ``.reset`` to register')
+                if amount == "all":
+                    if selldetails[1] is True:
+                        amount = selldetails[2]
+                    else:
+                        amount = 0
+
+                if selldetails[1] is True:
+                    user["money"] += selldetails[0]
+                    user["goods"] = setgoods("sell",user["goods"],order,amount)
+                    logger("sell",order,amount)
+                    await ctx.send("Sold **" + str(amount) + " " + str(order) + "** and earned " + str(int(selldetails[0])) + "$")
+                elif user["goods"][order] == 0:
+                    await ctx.send("Transaction failed. You don't own any " + str(order) + ".")
+                else:
+                    await ctx.send("Transaction failed. You need " + str(int(amount) - user["goods"][order]) + " more " + str(order) + ".")
+                try:
+                    setfileuser(userid,user)
+                except: #make this a function
+                    await ctx.send('Error, you are not registered. Please type ``.reset`` to register')
+            else:
+                await ctx.send('Invalid input. The correct syntax for this command is ``.sell <good or "all"> <number of goods or "all">')
+    else:
+        await ctx.send('Invalid input. The correct syntax for this command is ``.sell <good or "all"> <number of goods or "all">')
 
 @bot.command()
 async def referral(ctx,type=None):
@@ -681,7 +715,7 @@ async def test(ctx):
 
 @bot.command()
 @commands.is_owner()
-async def test2():
+async def test2(ctx):
     channel = bot.get_channel(697800679569358968)
     await channel.purge(limit=2)
 
@@ -722,7 +756,7 @@ async def on_command_error(context, error):
 @bot.command()
 @commands.is_owner()
 async def shutdown(ctx):
-    print ('Stockbroker is shutting down.')
+    print('Stockbroker is shutting down.')
     await ctx.bot.logout()
 
 bot.run(key)

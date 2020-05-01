@@ -52,7 +52,7 @@ logging.basicConfig(level=logging.INFO)
 bot = commands.Bot(command_prefix = '.')
 bot.remove_command('help')
 
-filelocation = '/Users/adityakannan/PythonProjects/Stocks_Revamped/'
+filelocation = '/home/ubuntu/Stocks_Revamped/'
 
 with open(filelocation + 'key.json','r') as keys:
     key = json.load(keys)
@@ -620,8 +620,6 @@ async def referral(ctx,type=None):
     user = getuserinfo(userid)
     userobject = bot.get_user(userid)
 
-    if type == "None":
-        pass
     if type == "create":
         channel = bot.get_channel(696825250033434634)
         link = await channel.create_invite(max_uses = 5)
@@ -644,14 +642,14 @@ async def referral(ctx,type=None):
             await ctx.send("Your referral link is generated successfully and has been sent to you privately.")
             await userobject.send("Here's your referral link: " + link.url + ". \n \n This referral link can be used for a maximum of 5 times. \n If you want more details on your referrals, type ``.referral check`` anywhere on the server.")
 
-    if type == "check":
+    elif type == "check":
         guild = ctx.guild
 
         invitemeta = await guild.invites()
         for invite in invitemeta:
             if invite.url == user["r_link"]:
                 break
-
+        
         user["r_uses"] = invite.uses
         
         embed=discord.Embed(title="Referral details", url="https://www.youtube.com/watch?v=dQw4w9WgXcQ")
@@ -664,7 +662,7 @@ async def referral(ctx,type=None):
         await ctx.send("Your referral details have been sent to you privately.")
         await userobject.send(embed=embed)
 
-    if type == "redeem":
+    elif type == "redeem":
         user = getuserinfo(ctx.author.id)
         channel = ctx.channel
         guild = ctx.guild
@@ -715,6 +713,8 @@ async def referral(ctx,type=None):
             elif response == 'exit':
                 await ctx.send(':thumbsup: Your rewards are still available for redeeming.')
             setfileuser(ctx.author.id,user)
+    else:
+        await ctx.send('The correct usage for this command is ``.referral <"create" or "check" or "redeem">``.')
         # await user.send('ey')
     # 'check', 'create', 'redeem' more the users invited, more the reward (like FoE's tavern house)
 

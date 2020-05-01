@@ -52,7 +52,9 @@ logging.basicConfig(level=logging.INFO)
 bot = commands.Bot(command_prefix = '.')
 bot.remove_command('help')
 
-with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/key.json','r') as keys:
+filelocation = '/Users/adityakannan/PythonProjects/Stocks_Revamped/'
+
+with open(filelocation + 'key.json','r') as keys:
     key = json.load(keys)
 
 goodslist = (
@@ -71,23 +73,23 @@ goodslist = (
 )
 
 def setfileuser(userid,user):
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/userdata/'+str(userid)+'.json','w') as userdata:
+    with open(filelocation + 'userdata/'+str(userid)+'.json','w') as userdata:
         json.dump(user,userdata)
 
 def setfileprices(prices): #modularized function because expect future integration with SQL
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/prices/prices.json','w') as pricedata:
+    with open(filelocation + 'prices/prices.json','w') as pricedata:
         json.dump(prices,pricedata)
 
 def getuserinfo(userid):
     try:
-        with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/userdata/'+str(userid)+'.json','r') as userdata:
+        with open(filelocation + 'userdata/'+str(userid)+'.json','r') as userdata:
             user = json.load(userdata)
         return user 
     except Exception:
         return None #return ERROR instead!
 
 def getprices():
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/prices/prices.json','r') as pricedata:
+    with open(filelocation + 'prices/prices.json','r') as pricedata:
         return json.load(pricedata)
 
 def resetuser(userid=None,r_link=None,r_uses=0,r_redeemed=0):
@@ -194,7 +196,7 @@ def displayprices(): #asynchronous because it needs to run periodically while re
     plt.xlabel('Time since last update (min)')
     plt.title('Commodity price index')
     plt.legend(goodslist, bbox_to_anchor=(1.01, 1), borderaxespad=0.0)
-    plt.savefig('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png',bbox_inches='tight')
+    plt.savefig(filelocation + 'cache/prices.png',bbox_inches='tight')
     plt.close()
     
     indentedgoods = (
@@ -308,7 +310,7 @@ def logger(type,good=None,amount=None): #need good-specific logs, make new funct
     if amount != None:
         amount = int(amount)
     
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','r') as logjson:
+    with open(filelocation + 'cache/activitylog.json','r') as logjson:
         logdata = json.load(logjson)
 
     if type == "get":
@@ -327,14 +329,14 @@ def logger(type,good=None,amount=None): #need good-specific logs, make new funct
         logdata[good][0] -= amount
         logdata[good][1] -= 1
 
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/activitylog.json','w') as logjson:
+    with open(filelocation + 'cache/activitylog.json','w') as logjson:
         json.dump(logdata,logjson)
 
 def getcost(type,amount=None): #implementation with goods prices. Is this really necessary? Might be needed for .totalvalue
     pass
 
 def userlist(type,userid=None):
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/userlist.json','r') as idlist:
+    with open(filelocation + 'cache/userlist.json','r') as idlist:
         userlist = json.load(idlist)
 
     if type == "join":
@@ -344,14 +346,14 @@ def userlist(type,userid=None):
     if type == "get":
         return userlist
 
-    with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/userlist.json','w') as idlist:
+    with open(filelocation + 'cache/userlist.json','w') as idlist:
         json.dump(userlist,idlist)
 
 def leaderboardupdate():
     lister = userlist("get")
     leaderboard = {}
     for i in lister:
-        with open('/Users/adityakannan/PythonProjects/Stocks_revamped/userdata/' + str(i) + '.json','r') as userdata:
+        with open(filelocation + 'userdata/' + str(i) + '.json','r') as userdata:
             user = json.load(userdata)
         leaderboard.update({user["money"]:i})
 
@@ -377,7 +379,7 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
             channel = bot.get_channel(697800679569358968)
             await channel.purge(limit=2)
             await channel.send(message)
-            await channel.send(file=File('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png'))
+            await channel.send(file=File(filelocation + 'cache/prices.png'))
 
             logcount += 1
             if logcount == 3:
@@ -386,7 +388,7 @@ async def on_ready(): #needs to *start* with asyncio(time) because the prices ar
 
             count2 = 0
             while count2<60:
-                await bot.change_presence(activity=discord.Game(name='.help | Time for reiteration: < ' + str(count) + ' seconds'))
+                await bot.change_presence(activity=discord.Game(name='.help | Time for reiteration: < ' + str(count2) + ' seconds'))
                 await asyncio.sleep(15)
                 count2 += 15
             await updateprices()
@@ -465,19 +467,10 @@ async def profile(ctx,*,member: discord.Member = None):
         embed=discord.Embed(title=displayname+"'s profile")
         
         embed.add_field(name="**Money**", value=int(round(user["money"],0)), inline=False)
+
+        for x in goodslist:
+            embed.add_field(name=x.capitalize(),value=user["goods"][x], inline=True)
         
-        embed.add_field(name="Gold", value=user["goods"]["gold"], inline=True)
-        embed.add_field(name="Silver", value=user["goods"]["silver"], inline=True)
-        embed.add_field(name="Oil", value=user["goods"]["oil"], inline=True)
-        embed.add_field(name="Platinum", value=user["goods"]["platinum"], inline=True)
-        embed.add_field(name="Diamond", value=user["goods"]["platinum"], inline=True)
-        embed.add_field(name="Corn", value=user["goods"]["corn"], inline=True)
-        embed.add_field(name="Copper", value=user["goods"]["copper"], inline=True)
-        embed.add_field(name="Cotton", value=user["goods"]["cotton"], inline=True)
-        embed.add_field(name="Sugar", value=user["goods"]["sugar"], inline=True)
-        embed.add_field(name="Coal", value=user["goods"]["coal"], inline=True)
-        embed.add_field(name="Wheat", value=user["goods"]["wheat"], inline=True)
-        embed.add_field(name="Uranium", value=user["goods"]["uranium"], inline=True)
         embed.set_footer(text="Stockbroker")
         await ctx.send(embed=embed)
     else:
@@ -491,10 +484,10 @@ async def credit(ctx,member: discord.Member,amount):
     user["money"] = user["money"]+int(amount)
 
     # ADD dictionary appending, etc. for logging. Long term proj.
-    # with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/userdata/creditlog.json','r') as creditlog:
+    # with open(filelocation + 'userdata/creditlog.json','r') as creditlog:
     #    json.load(creditlog)
     
-    # with open('/Users/adityakannan/PythonProjects/Stocks_Revamped/userdata/creditlog.json','w') as creditlog:
+    # with open(filelocation + 'userdata/creditlog.json','w') as creditlog:
     #    json.dump(creditlog,log) 
 
     setfileuser(userid,user)
@@ -502,32 +495,46 @@ async def credit(ctx,member: discord.Member,amount):
     await ctx.send("Credited " + member.name + " " + amount + "$ and logged.")
 
 @bot.command()
-async def buy(ctx,order,amount):
+async def buy(ctx,order,amount=None):
     userid = ctx.author.id
     try:
         user = getuserinfo(userid)
     except: #make this a function
         await ctx.send('Error, you are not registered. Please type ``.reset`` to register')
 
-    purchasedetails = canafford(user["money"],order,amount)
-    
-    if amount == "all":
-        if purchasedetails[1] is True:
-            amount = purchasedetails[2]
+    go = 0
+    if amount != None:
+        if amount == "all":
+            go = 1
         else:
-            amount = 0
+            try:
+                amount = int(amount)
+                for x in goodslist:
+                    if x == order:
+                        go = 1
+            except:
+                pass
+    if go == 1:
+        purchasedetails = canafford(user["money"],order,amount)
+        
+        if amount == "all":
+            if purchasedetails[1] is True:
+                amount = purchasedetails[2]
+            else:
+                amount = 0
+        amount = int(amount) #for sales too
+        
+        if purchasedetails[1] is True:
+            user["money"] = user["money"] - purchasedetails[0]
+            user["goods"] = setgoods("buy",user["goods"],order,amount) #changed from 'inventory' to 'user["goods"]'
+            logger("buy",order,amount)
+            await ctx.send("Purchased **" + str(amount) + " " + order + "** and paid " + str(int(purchasedetails[0])) + "$")
+        else:
+            await ctx.send("Transaction failed. You need " + str(int(purchasedetails[0] - user["money"])) + "$ more.")
 
-    amount = int(amount) #for sales too
-    
-    if purchasedetails[1] is True:
-        user["money"] = user["money"] - purchasedetails[0]
-        user["goods"] = setgoods("buy",user["goods"],order,amount) #changed from 'inventory' to 'user["goods"]'
-        logger("buy",order,amount)
-        await ctx.send("Purchased **" + str(amount) + " " + order + "** and paid " + str(int(purchasedetails[0])) + "$")
+        setfileuser(userid,user)
     else:
-        await ctx.send("Transaction failed. You need " + str(int(purchasedetails[0] - user["money"])) + "$ more.")
-
-    setfileuser(userid,user)
+        await ctx.send('Invalid input. The correct syntax for this command is ``.buy <good or "all"> <amount of good>``')
 
 @bot.command()
 async def sell(ctx,order,amount=None):
@@ -577,7 +584,8 @@ async def sell(ctx,order,amount=None):
             else:
                 await ctx.send("Transaction failed. You don't currently own any goods.")
         else:
-            if str(type(amount)) == "<class 'int'>":
+            try:
+                amount = int(amount)
                 selldetails = cansell(user["goods"],order,amount) #to check if they have enough goods
 
                 if amount == "all":
@@ -599,10 +607,12 @@ async def sell(ctx,order,amount=None):
                     setfileuser(userid,user)
                 except: #make this a function
                     await ctx.send('Error, you are not registered. Please type ``.reset`` to register')
-            else:
-                await ctx.send('Invalid input. The correct syntax for this command is ``.sell <good or "all"> <number of goods or "all">')
+            except:
+                print(str(type(amount)))
+                await ctx.send('Invalid input. The correct syntax for this command is ``.sell <good or "all"> <number of goods or "all">``')
     else:
-        await ctx.send('Invalid input. The correct syntax for this command is ``.sell <good or "all"> <number of goods or "all">')
+        print('2')
+        await ctx.send('Invalid input. The correct syntax for this command is ``.sell <good or "all"> <number of goods or "all">``')
 
 @bot.command()
 async def referral(ctx,type=None):
@@ -722,7 +732,7 @@ async def test2(ctx):
     message = displayprices()
     channel = bot.get_channel(697800679569358968)
     await channel.send(message)
-    await channel.send(file=File('/Users/adityakannan/PythonProjects/Stocks_Revamped/cache/prices.png'))
+    await channel.send(file=File(filelocation + 'cache/prices.png'))
 
 @bot.command()
 @commands.is_owner()

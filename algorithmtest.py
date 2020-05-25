@@ -1,5 +1,3 @@
-import random
-import math
 import numpy as np
 
 x = 100

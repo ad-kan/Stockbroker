@@ -2,14 +2,11 @@ import discord
 from discord import File
 from discord.ext import commands
 import logging
-
-import time
 import asyncio
 import json
 import random
 import matplotlib.pyplot as plt
 import numpy as np
-from datetime import datetime, timedelta
 
 logging.basicConfig(level=logging.INFO)
 

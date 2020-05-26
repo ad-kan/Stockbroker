@@ -3,5 +3,8 @@
 		{
 			"path": "."
 		}
-	]
+	],
+	"settings": {
+		"python.pythonPath": "/Users/adityakannan/opt/anaconda3/bin/python"
+	}
 }

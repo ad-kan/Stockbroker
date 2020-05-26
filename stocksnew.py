@@ -52,7 +52,10 @@ logging.basicConfig(level=logging.INFO)
 bot = commands.Bot(command_prefix = '.')
 bot.remove_command('help')
 
-filelocation = '/home/ubuntu/Stocks_Revamped/'
+filelocation = '/Users/adityakannan/PythonProjects/Stocks_Revamped/'
+
+# '/Users/adityakannan/PythonProjects/Stocks_Revamped/'
+# '/home/ubuntu/Stocks_Revamped/'
 
 with open(filelocation + 'key.json','r') as keys:
     key = json.load(keys)
@@ -180,14 +183,19 @@ def displayprices(): #asynchronous because it needs to run periodically while re
     for x in prices:
         prices[x].reverse()
         reversehistory = len(prices[x])-history
+        print(history)
+        print(reversehistory)
         last = 1
-        if history == len(prices[x])-1: # spoof an extra step at 40 because there are 41 x axis points (0,40) but only 40 data points in price[x]
-            reversehistory = len(prices[x])-history-1
-            prices[x].append(prices[x][len(prices[x]-1)])
+        if history == len(prices[x]): # spoof an extra step at 40 because there are 41 x axis points (0,40) but only 40 data points in price[x]
+            # reversehistory = len(prices[x])-history-1
+            prices[x].append(prices[x][len(prices[x][history])])
             last = 0
-        xaxis = np.arange(reversehistory+last,len(prices[x])+1,1)
+        xaxis = np.arange(reversehistory+last,len(prices[x])+1,1) #because np.arange(1,3,1) = [1,2], need 40
         plt.plot(xaxis,prices[x][reversehistory:],linestyle=linestyles[count]) # xaxis 3, reverse 2
         count += 1
+    
+    print(prices[x][reversehistory:])
+    print(xaxis)
 
     plt.axis([40,0,0,100])
     plt.vlines(range(40, 0, -5), 0, 100, linestyles='dashed', linewidth=0.5,colors='#fff')
@@ -365,7 +373,6 @@ def leaderboardupdate():
 async def on_ready(): #needs to *start* with asyncio(time) because the prices are randomized when the script begins
     #await bot.change_presence(activity=discord.Game(name='(.help)'))
 
-    resetprices()
     logger("reset")
 
     print('Stockbroker is ready.')
@@ -720,8 +727,12 @@ async def referral(ctx,type=None):
 
 @bot.command()
 @commands.is_owner()
-async def test(ctx):
-    await updateprices()
+async def test(ctx,repeat=None):
+    count = 0
+    while count <= int(repeat):
+        await updateprices()
+        count += 1
+    await ctx.send('Updated market ' + str(count) + ' times.')
 
 @bot.command()
 @commands.is_owner()
